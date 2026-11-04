@@ -6,4 +6,6 @@ workers_dev = true
 [vars]
 ALLOWED_ORIGINS = "https://mwaweru.com,https://www.mwaweru.com,http://localhost:5195"
 KIJAZO_REPO = "M-Waweru/worldmwaweru"
+# Multi-project example (configure when onboarding multiple apps):
+# KIJAZO_PROJECTS = '{ "worldmwaweru": "M-Waweru/worldmwaweru", "expenses": "your-org/expenses-web" }'
 OPENAI_MODEL = "gpt-4.1-mini"

@@ -1,10 +1,8 @@
 export type KijazoConfig = {
-  apiUrl: string
+  apiUrl?: string
   project?: string
   title?: string
-  initialContent?: Record<string, string>
-  onContentChange?: (next: Record<string, string>) => void
-  enableWhen?: 'query-param' | 'always'
+  enableWhen?: 'query-param' | 'always' | 'never'
 }
 export type KijazoHandle = { destroy(): void; open(): void; close(): void }
-export function mountKijazo(config: KijazoConfig): KijazoHandle
+export function mountKijazo(config?: KijazoConfig): KijazoHandle

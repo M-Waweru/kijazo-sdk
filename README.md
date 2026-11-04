@@ -1,85 +1,73 @@
-# Kijazo SDK
+# Kijazo — Chat-first visual coding for any software
 
-**Kijazo** is a plug-in development environment for existing websites. Users edit page content in place or ask an AI coding agent to change the real application's frontend code.
+Kijazo is an independent SDK and AI coding API. Install it in **a banking dashboard, CRM, accounting tool, expense app, SaaS platform, e-commerce site, content system, game or portfolio**. The host app is a customer of Kijazo, not the product itself.
 
-Built as an **independent project**. The host website installs the SDK rather than owning Kijazo's implementation.
+## Developer experience
 
-## Repository structure
-
-- `src/browser.mjs` — framework-independent UI, content editing, element selection, chat and live agent events.
-- `src/browser.d.ts` — TypeScript declarations.
-- `worker/src/index.mjs` — Cloudflare Worker providing the server-side AI/GitHub editing service.
-- `worker/wrangler.toml` — Cloudflare deployment configuration.
-- `tests/` — smoke tests.
-- `docs/ARCHITECTURE.md` — security, product scope, deployment and next milestones.
-
-## Install into a React/Vite website
-
-Install from this repository using npm, pinned to a reviewed commit:
-
-```bash
-npm install git+https://github.com/M-Waweru/kijazo-sdk.git
-```
-
-After the host mounts, you can use:
-
-```tsx
+\`\`\`js
 import { mountKijazo } from '@kijazo/sdk'
 
 const editor = mountKijazo({
   title: 'Kijazo',
-  project: 'worldmwaweru',
-  apiUrl: import.meta.env.VITE_KIJAZO_API_URL,
-  initialContent: { welcomeTitle: 'Hello world' },
-  onContentChange: (draft) => {
-    // Your own app reacts to edits and renders the updated content.
-  },
+  project: 'my-saas-dashboard',
+  apiUrl: 'https://api.kijazo.com',
+  enableWhen: 'query-param', // on https://myapp.example/?kijazo=1
 })
-// Cleanup: editor.destroy()
-```
+// Destroy on app unmount: editor.destroy()
+\`\`\`
 
-Default `enableWhen: 'query-param'` means the editor appears only on URLs with `?kijazo=1`. To enable it on every page use `enableWhen: 'always'`.
+The SDK is pure browser JavaScript with a Shadow DOM overlay; no React-specific code. The host does **not** need to declare editable fields, CSS theme presets or a special site structure.
 
-The SDK contains **no provider keys**, GitHub tokens or backend credentials.
+## What the editor can do
 
-## Deploy Kijazo API to Cloudflare
+The composer is chat-first. It can attach screenshots via the upload button, **paste an image from the clipboard**, or request a user-approved **browser screen/tab capture**. Click **Mark up** to draw, circle, highlight, point arrows or crop to a relevant region. Click **Select** to pass a target DOM selector, element HTML/text and bounding box. All of that context accompanies a natural-language instruction to the AI service. The visual editing marks are pixels on an attached image: the model can see the annotated region but does not receive full DOM source unless an element is explicitly selected.
 
-Use a Cloudflare account with Workers enabled:
+Screen capture uses \`getDisplayMedia()\`: browsers require a user gesture and permission. It may capture your entire screen or another tab, depending on what you explicitly select. Always review images from sensitive applications before sending. The capture is not stored in browser storage or sent until you press **Send**. The access key stays in memory during the session.
 
-```bash
-cd worker
-npm install
-npx wrangler login
-npx wrangler secret put OPENAI_API_KEY
-npx wrangler secret put GITHUB_TOKEN
-npx wrangler secret put KIJAZO_EDITOR_KEY
-npx wrangler deploy
-```
+## AI implementation
 
-Edit `worker/wrangler.toml` for your allowlisted website origins, target repository and model. Route the deployed Worker to `api.kijazo.com` inside Cloudflare, then configure the host website with `VITE_KIJAZO_API_URL=https://api.kijazo.com`.
+\`worker/src/index.mjs\` runs on Cloudflare Workers, with \`OPENAI_API_KEY\` and \`GITHUB_TOKEN\` as encrypted Worker secrets. The API accepts a text instruction, selected DOM context and/or a JPEG screenshot as an image input to an image-capable OpenAI model. It reads/writes repository files through GitHub on a generated \`kijazo/...\` branch and opens a reviewable pull request. Subsequent chat messages in one session continue on that task branch and update its existing PR.
 
-For this initial owner-controlled test, `GITHUB_TOKEN` is a fine-grained GitHub token with **Contents: Read and write** and **Pull requests: Read and write** on **only** the website repository. This token is a temporary bootstrap approach; the long-term design uses a GitHub App with installation-scoped credentials. Do not enter secrets into public repository files or Vite variables.
+This is **arbitrary frontend code editing**, not a list of preset commands. It is not yet a local build sandbox, browser testing system, live AI preview, or authenticated shared workspace. Repository CI runs after proposed code changes. These are currently engineering limitations, not a scope restriction on Kijazo's eventual product vision.
 
-`KIJAZO_EDITOR_KEY` is a temporary access key typed by the site owner; the SDK keeps it in memory and does not persist it. Do not open this API for anonymous public agents until per-user sessions, abuse controls and spending limits are implemented.
+For multiple apps use the allowlisted \`KIJAZO_PROJECTS\` setting in the Worker, mapping SDK \`project\` values to source repositories. Never accept arbitrary repository names from an untrusted visitor.
 
-## What works now
+## Cloudflare setup
 
-- Website overlay with page-element selection and host-driven live content editing.
-- Free-form chat requests submitted to the Cloudflare agent endpoint.
-- AI tool loop reading and rewriting source files on a new GitHub branch.
-- SSE progress updates and a GitHub PR link.
-- No need for a dedicated coding server for this GitHub-only phase.
+The API is deployed to:
+\`https://kijazo-api.mathenge2waweru.workers.dev\`
 
-## What does not work yet
+In Cloudflare Dashboard:
+**Workers & Pages → kijazo-api → Settings → Variables and Secrets → Add → Type: Secret**.
 
-- No in-browser live preview of AI-rewritten source before merging; local content edits are immediately visible.
-- No sandbox execution of builds, browsers or tests inside the Worker. GitHub CI can run after a PR is opened.
-- No public user accounts, anonymous editing, multiplayer sessions, GitHub App authentication, or job persistence.
-- No Cloudflare deployment has occurred yet. The Worker requires your Cloudflare credentials and secrets.
+Create these three secrets:
 
-## Validate
+| Name | Value |
+| --- | --- |
+| \`OPENAI_API_KEY\` | Your API project key with access to a vision-capable model |
+| \`GITHUB_TOKEN\` | A fine-grained PAT with repository Contents read/write and Pull requests read/write |
+| \`KIJAZO_EDITOR_KEY\` | A newly generated 32-byte random secret that you enter through the editor |
 
-```bash
-npm test
-npm run check
-```
+Select **Deploy** to apply the changes. Don't put secrets in GitHub, \`wrangler.toml\`, \`.env\` committed to source, or \`VITE_*\` frontend variables.
+
+For nonsecret environment configuration, use **Type: Text**:
+- \`KIJAZO_REPO=M-Waweru/worldmwaweru\` for a single-app test, **or**
+- \`KIJAZO_PROJECTS={"worldmwaweru":"M-Waweru/worldmwaweru","expense-tool":"your-org/expense-tool-web"}\`
+- \`ALLOWED_ORIGINS\` comma-separated website origin allowlist.
+- \`OPENAI_MODEL\` a current image-capable model, e.g. \`gpt-4.1-mini\`.
+
+For local development, place the same values in an uncommitted \`worker/.dev.vars\` and use \`npx wrangler dev\`. The \`.dev.vars\` file is gitignored.
+
+**No Cloudflare secret was configured by the SDK repository deployment.** Having an API hostname live is not equivalent to an operational AI workflow.
+
+## Security model
+
+- The editor access key is temporary, shared-owner authentication, **not** individual SaaS-user identity.
+- The Worker only allows registered repositories and creates reviewable branches; browser callers never receive GitHub/OpenAI keys.
+- Public edit access requires real user sessions, quotas, abuse protection, versioning and publish approval.
+- Screenshots of banking, customer or expense applications might contain private data. An operator should inspect and redact before sending to the model provider.
+- The SDK does not provide access to the host application's database; only the configured source repository is edited.
+
+## Tests
+
+Run \`npm test\` and \`npm run check\` at the SDK root. GitHub Actions runs these on pushes and pull requests.

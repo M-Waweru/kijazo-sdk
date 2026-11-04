@@ -1,9 +1,9 @@
 {
   "name": "@kijazo/sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "private": true,
-  "description": "Embeddable AI software editor for existing websites",
+  "description": "Framework-independent, multimodal AI coding editor for any website or SaaS application",
   "exports": {
     ".": {
       "types": "./src/browser.d.ts",
