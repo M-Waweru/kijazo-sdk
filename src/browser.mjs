@@ -29,22 +29,23 @@ export function mountKijazo(config={}){
  const status=elt('div');status.className='kj-progress';status.hidden=true;thread.append(status);
  const composer=elt('div');composer.className='kj-composer';panel.append(composer);
  const controls=elt('div');controls.className='kj-context';
- const select=elt('button','◎ Select');const screen=elt('button','▣ Capture');const attach=elt('button','＋ Image');const annotate=elt('button','✎ Mark up');const fresh=elt('button','↻ New');
+ const select=elt('button','◎ Point');const screen=elt('button','✂ Snip');const attach=elt('button','＋ Attach');const annotate=elt('button','✎ Draw');const fresh=elt('button','↻ New');
  for(const b of [select,screen,attach,annotate,fresh])b.type='button';
- controls.append(select,screen,attach,annotate,fresh);composer.append(controls);
- const attachment=elt('div');attachment.className='kj-attach';attachment.hidden=true;const thumb=elt('img');thumb.alt='Screenshot to send to Kijazo';const attachLabel=elt('span','Screenshot attached');const detach=elt('button','✕');detach.setAttribute('aria-label','Remove screenshot');attachment.append(thumb,attachLabel,detach);composer.append(attachment);
+ controls.append(screen,attach,annotate,fresh);composer.append(controls);
+ const attachment=elt('div');attachment.className='kj-attach';attachment.hidden=true;const thumb=elt('img');thumb.alt='Screenshot to send to Kijazo';const attachLabel=elt('span','Screenshot attached · click to mark it');const detach=elt('button','✕');detach.setAttribute('aria-label','Remove screenshot');attachment.append(thumb,attachLabel,detach);composer.append(attachment);
+ const docAttachment=elt('div');docAttachment.className='kj-attach';docAttachment.hidden=true;const docLabel=elt('span');const removeDoc=elt('button','✕');removeDoc.setAttribute('aria-label','Remove document');docAttachment.append(elt('span','📄'),docLabel,removeDoc);composer.append(docAttachment);
  const row=elt('div');row.className='kj-compose-row';const prompt=elt('textarea');prompt.className='kj-input';prompt.placeholder='Tell Kijazo what to build or change…';prompt.setAttribute('aria-label','Message to Kijazo');prompt.rows=2;const send=elt('button','Send ↗');send.className='kj-send';send.type='button';row.append(prompt,send);composer.append(row);
  const foot=elt('div');foot.className='kj-foot';const hint=elt('span','Enter to send · Shift+Enter for newline');const setup=elt('button','Connect editor');foot.append(hint,setup);composer.append(foot);
- const file=elt('input');file.type='file';file.accept='image/png,image/jpeg,image/webp,image/gif';file.hidden=true;shadow.append(file);
- const overlay=elt('div');overlay.className='kj-annotation';overlay.hidden=true;const work=elt('div');work.className='kj-annotation-body';const overlayHead=elt('header');overlayHead.append(elt('h2','Mark the area you want changed'));const closeOverlay=elt('button','Cancel');overlayHead.append(closeOverlay);work.append(overlayHead);
+ const file=elt('input');file.type='file';file.accept='image/png,image/jpeg,image/webp,image/gif,application/pdf,.txt,.md,.csv,.json,.yaml,.yml,.xml,.html,.js,.jsx,.ts,.tsx,.py,.sql,.log';file.hidden=true;shadow.append(file);
+ const overlay=elt('div');overlay.className='kj-annotation';overlay.hidden=true;const work=elt('div');work.className='kj-annotation-body';const overlayHead=elt('header');overlayHead.append(elt('h2','Snip, circle or underline what you want changed'));const closeOverlay=elt('button','Cancel');overlayHead.append(closeOverlay);work.append(overlayHead);
  const tools=elt('div');tools.className='kj-tools';const buttons={};
- for(const [key,label] of [['pen','Draw'],['highlight','Highlight'],['circle','Circle'],['arrow','Arrow'],['crop','Crop']]){const b=elt('button',label);b.type='button';b.dataset.tool=key;buttons[key]=b;tools.append(b)}
+ for(const [key,label] of [['crop','Snip area'],['circle','Circle'],['underline','Underline'],['highlight','Highlight'],['pen','Pen'],['arrow','Arrow']]){const b=elt('button',label);b.type='button';b.dataset.tool=key;buttons[key]=b;tools.append(b)}
  const undo=elt('button','Undo');const clear=elt('button','Clear');tools.append(undo,clear);work.append(tools);
  const canvas=elt('canvas');canvas.setAttribute('aria-label','Screenshot drawing area');work.append(canvas);
  const overlayActions=elt('div');overlayActions.className='kj-annotation-actions';const done=elt('button','Attach marked image');done.className='kj-apply';overlayActions.append(done);work.append(overlayActions);overlay.append(work);shadow.append(overlay);
  const annotator=createAnnotator(canvas);
  const keyboard=createKeyboardBoundary({ host, shadow, panel });
- let screenshot=null,selection=null,selecting=false,hovered=null,hoverOutline='',busy=false,secret='',sessionId=crypto.randomUUID(),branch=null,lastPr=null,destroyed=false;
+ let screenshot=null,documentAttachment=null,selection=null,selecting=false,hovered=null,hoverOutline='',busy=false,secret='',sessionId=crypto.randomUUID(),branch=null,lastPr=null,destroyed=false;
  const threadHistory=[];
  function log(role,text,image){
   const msg=elt('div');msg.className='kj-message';msg.dataset.role=role;msg.append(elt('small',role==='you'?'You':'Kijazo'));msg.append(document.createTextNode(String(text||'')));
@@ -62,6 +63,7 @@ export function mountKijazo(config={}){
   attachment.hidden=!next;
   if(next)thumb.src=next;else thumb.removeAttribute('src');
   annotate.disabled=!next;
+   annotate.textContent=next?'✎ Draw on image':'✎ Draw';
  }
  annotate.disabled=true;
  function clearHover(){if(hovered){hovered.style.outline=hoverOutline;hovered=null}}
@@ -85,10 +87,38 @@ export function mountKijazo(config={}){
  function close(){panel.hidden=true;launcher.hidden=false;keyboard.release();stopSelect()}
  launcher.addEventListener('click',open);exit.addEventListener('click',close);
  select.addEventListener('click',()=>{selecting=!selecting;select.setAttribute('aria-pressed',String(selecting));log('kijazo',selecting?'Click an element in the application to give me its context.':'Selection cancelled.')});
- file.addEventListener('change',async()=>{if(!file.files?.[0])return;try{updateImage(await imageFromFile(file.files[0]));log('kijazo','Image attached. Add a note or mark it up.')}catch(e){log('kijazo',e.message)}finally{file.value=''}});
+ file.addEventListener('change',async()=>{const chosen=file.files?.[0];if(!chosen)return;
+  try{
+   if(chosen.type.startsWith('image/')){updateImage(await imageFromFile(chosen));await openAnnotation('pen');log('kijazo','Draw directly on the image, then describe the change in chat.')}
+   else if(chosen.type==='application/pdf'||/\.pdf$/i.test(chosen.name)){
+    if(chosen.size>2_000_000)throw Error('For now, PDFs must be under 2 MB. Please use a smaller file.');
+    const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(Error('Could not read PDF'));r.readAsDataURL(chosen)});
+    documentAttachment={name:chosen.name,type:'application/pdf',data};docLabel.textContent=chosen.name;docAttachment.hidden=false;
+    log('kijazo','PDF attached. Ask me what to build using it as a reference.');
+   }else{
+    if(chosen.size>100_000)throw Error('Text attachments must be smaller than 100 KB.');
+    const text=await chosen.text();
+    documentAttachment={name:chosen.name,type:'text/plain',text};docLabel.textContent=chosen.name;docAttachment.hidden=false;
+    log('kijazo','Document attached: '+chosen.name+'. You can describe the change in chat.');
+   }
+  }catch(e){log('kijazo',e.message)}finally{file.value=''}
+ });
  attach.addEventListener('click',()=>file.click());detach.addEventListener('click',()=>updateImage(null));
- screen.addEventListener('click',async()=>{try{const wasVisible=!panel.hidden;panel.hidden=true;keyboard.release();const picture=await captureScreen();panel.hidden=!wasVisible;updateImage(picture);log('kijazo','Captured your selected tab or screen. You can circle or highlight what should change.');keyboard.take();prompt.focus({preventScroll:true})}catch(e){panel.hidden=false;keyboard.take();prompt.focus({preventScroll:true});log('kijazo',e.message)}});
- annotate.addEventListener('click',async()=>{if(!screenshot)return;overlay.hidden=false;await annotator.load(screenshot);buttons.pen.setAttribute('aria-pressed','true')});
+ removeDoc.addEventListener('click',()=>{documentAttachment=null;docAttachment.hidden=true});
+ thumb.addEventListener('click',()=>annotate.click());
+ screen.addEventListener('click',async()=>{try{
+  panel.hidden=true;keyboard.release();
+  const picture=await captureScreen();
+  panel.hidden=false;updateImage(picture);await openAnnotation('crop');
+  keyboard.take();
+ }catch(e){panel.hidden=false;keyboard.take();log('kijazo',e.message)}
+ });
+ async function openAnnotation(mode='pen'){
+  if(!screenshot)return;
+  overlay.hidden=false;await annotator.load(screenshot);
+  buttons[mode]?.click();
+ }
+ annotate.addEventListener('click',()=>void openAnnotation('pen'));
  for(const [name,b] of Object.entries(buttons))b.addEventListener('click',()=>{annotator.setTool(name);Object.entries(buttons).forEach(([key,element])=>element.setAttribute('aria-pressed',String(key===name)))});
  undo.addEventListener('click',()=>annotator.undo());clear.addEventListener('click',()=>annotator.clear());
  done.addEventListener('click',()=>{updateImage(annotator.screenshot());overlay.hidden=true;log('kijazo','Marked screenshot ready to send.')});
@@ -98,27 +128,27 @@ export function mountKijazo(config={}){
   if(!images.length)return;
   const uploaded=images[0].getAsFile();if(!uploaded)return;
   event.preventDefault();
-  try{updateImage(await imageFromFile(uploaded));log('kijazo','Pasted screenshot attached.')}catch(e){log('kijazo',e.message)}
+  try{updateImage(await imageFromFile(uploaded));await openAnnotation('pen');log('kijazo','Pasted screenshot ready to mark up.')}catch(e){log('kijazo',e.message)}
  });
  setup.addEventListener('click',()=>{
   if(!secret){const proposed=window.prompt('Enter your Kijazo editor key. This is kept only in browser memory.');if(proposed)secret=proposed.trim()}
   else if(window.confirm('Clear the editor access key from memory?'))secret='';
   setup.textContent=secret?'Editor connected · change key':'Connect editor';
  });
- fresh.addEventListener('click',()=>{sessionId=crypto.randomUUID();branch=null;lastPr=null;selection=null;updateImage(null);threadHistory.length=0;log('kijazo','Started a fresh editing session.')});
+ fresh.addEventListener('click',()=>{sessionId=crypto.randomUUID();branch=null;lastPr=null;selection=null;updateImage(null);documentAttachment=null;docAttachment.hidden=true;threadHistory.length=0;log('kijazo','Started a fresh editing session.')});
  async function submit(){
   const instruction=prompt.value.trim();
-  if(!instruction && !screenshot)return;
+  if(!instruction && !screenshot && !documentAttachment)return;
   if(!opt.apiUrl){log('kijazo','The Kijazo API is not configured on this application. Ask its owner to set the API URL.');return}
   if(!secret){log('kijazo','Use Connect editor to enter your access key before sending AI requests.');return}
   if(busy)return;
   busy=true;send.disabled=true;status.hidden=false;status.textContent='Connecting to Kijazo…';
-  const image=screenshot;
+  const image=screenshot;const document=documentAttachment;
   log('you',instruction||(image?'Please inspect this screenshot and make the indicated change.':''),image);
   prompt.value='';
   try{
    const response=await fetch(opt.apiUrl.replace(/\/$/,'')+'/api/changes',{method:'POST',headers:{'content-type':'application/json','X-Kijazo-Editor-Key':secret},body:JSON.stringify({
-    project:opt.project||'',page:stripUrl(location.href),instruction:instruction||'Please inspect the screenshot and implement the indicated improvements.',selected:selection,...(image?{image}:{}),sessionId,branch,history:threadHistory.slice(-8),
+    project:opt.project||'',page:stripUrl(location.href),instruction:instruction||'Please inspect the screenshot and implement the indicated improvements.',selected:selection,...(image?{image}:{}),...(document?{document}:{}),sessionId,branch,history:threadHistory.slice(-8),
    })});
    if(!response.ok){let data;try{data=await response.json()}catch{}throw Error(data?.error||'Kijazo API returned '+response.status)}
    if(!response.body)throw Error('Streaming responses are unavailable');
@@ -140,12 +170,12 @@ export function mountKijazo(config={}){
    else log('kijazo',complete.message||'Request completed.');
    threadHistory.push({role:'user',content:instruction},{role:'assistant',content:complete.message||'Prepared code edits'});
    status.textContent='Changes ready for review.';
-   updateImage(null);selection=null;
+   updateImage(null);documentAttachment=null;docAttachment.hidden=true;selection=null;
   }catch(error){log('kijazo',error.message||String(error));status.textContent='Request failed — please retry.'}
   finally{busy=false;send.disabled=false;setTimeout(()=>{if(!busy)status.hidden=true},1600)}
  }
  send.addEventListener('click',()=>void submit());
  prompt.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void submit()}});
- log('kijazo','Tell me what you want to build. Select a component or attach a screenshot and draw on it to show me exactly where.');
+ log('kijazo','Tell me what you want to build. Paste a screenshot, use Snip, or attach a document. Circle or underline anything you want changed, then keep chatting.');
  return {open,close,destroy(){if(destroyed)return;destroyed=true;stopSelect();annotator.destroy();document.removeEventListener('click',selectCapture,true);document.removeEventListener('pointermove',hoverCapture,true);keyboard.destroy();host.remove()}};
 }
