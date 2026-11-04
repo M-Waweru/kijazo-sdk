@@ -124,12 +124,20 @@ export default {async fetch(request,env,ctx){
  const url=new URL(request.url),headers=cors(request,env);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(url.pathname==='/health')return json({ok:true,service:'kijazo-api'},200,headers);
- if(url.pathname!=='/api/changes'||request.method!=='POST')return json({error:'Not found'},404,headers);
+ if(!['/api/changes','/api/diagnostics'].includes(url.pathname)||request.method!=='POST')return json({error:'Not found'},404,headers);
  const origin=request.headers.get('Origin');
  if(origin&&!headers['Access-Control-Allow-Origin'])return json({error:'Origin not allowed'},403,headers);
  if(!env.KIJAZO_EDITOR_KEY||!env.OPENAI_API_KEY||!env.GITHUB_TOKEN)return json({error:'Server not configured; set required Cloudflare secrets'},503,headers);
  const sent=request.headers.get('X-Kijazo-Editor-Key')||'';
  if(!sent||sent!==env.KIJAZO_EDITOR_KEY)return json({error:'Editor authorization required'},401,headers);
+ if(url.pathname==='/api/diagnostics'){
+   try {
+     const test=await githubJSON(env,'/git/ref/heads/main');
+     return json({ok:true,repository:env.KIJAZO_REPO,main_ref_accessible:Boolean(test?.object?.sha),note:'Read access verified. Branch creation and pull-request permissions are not tested by this diagnostic.'},200,headers);
+   }catch(error){
+     return json({ok:false,repository:env.KIJAZO_REPO,error:String(error?.message||error)},200,headers);
+   }
+ }
  let input;try{input=await request.json()}catch{return json({error:'Invalid JSON'},400,headers)}
  if(typeof input.instruction!=='string'||input.instruction.length<3||input.instruction.length>5000)return json({error:'Instruction must be 3-5000 characters'},400,headers);
  if(input.image!=null&&(typeof input.image!=='string'||input.image.length>3_500_000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(input.image)))return json({error:'Attached image must be a PNG, JPEG or WebP data URL under 3.5 MB'},400,headers);
