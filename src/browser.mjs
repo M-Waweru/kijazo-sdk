@@ -159,6 +159,11 @@ export function mountKijazo(config={}){
           status.textContent=event.message;
           if(/^(Edited |Created |Continuing |Opening |Reading )/.test(event.message))log('kijazo','⚙ '+event.message);
        }
+       if(event.type==='activity'){
+          const detail=event.message||event.action||'Working';
+          status.textContent=detail;
+          if(event.phase!=='start'||event.action==='read_file'||event.action==='search_code'||event.action==='list_files')log('kijazo',(event.phase==='error'?'⚠ ':'⚙ ')+detail);
+       }
        if(event.type==='complete')complete=event;
        if(event.type==='error')error=event.message||'Agent request failed';
      }
