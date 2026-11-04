@@ -17,6 +17,7 @@ function mockFetch(calls) {
     if(modelCalls===1) return response({choices:[{message:{role:'assistant',tool_calls:[{id:'write-1',type:'function',function:{name:'write_file',arguments:JSON.stringify({path:'src/title.ts',content:'export const title = "Hello";\n'})}}]}}]})
     return response({choices:[{message:{role:'assistant',content:'Updated the title.'}}]})
   }
+  if(target.includes('/git/trees/main?recursive=1'))return response({tree:[{type:'blob',path:'src/title.ts'}]})
   if(target.endsWith('/git/ref/heads/main'))return response({object:{sha:'basecommit'}})
   if(target.endsWith('/git/refs')&&options.method==='POST')return response({ref:'refs/heads/kijazo/test'})
   if(target.includes('/contents/src/title.ts')&&(!options.method||options.method==='GET'))return response({message:'Not found'},404)
@@ -61,6 +62,7 @@ test('PDF reference is validated and accepted into agent stream',async()=>{
  const original=globalThis.fetch;
  globalThis.fetch=async(url,options={})=>{
   const str=String(url);
+  if(str.includes('/git/trees/main?recursive=1'))return response({tree:[{type:'blob',path:'src/brief.ts'}]});
   if(str.endsWith('/git/ref/heads/main'))return response({object:{sha:'base'}});
   if(str.endsWith('/git/refs')&&options.method==='POST')return response({ref:'refs/heads/kijazo/test'});
   if(str.includes('api.openai.com/v1/chat/completions')){
@@ -80,7 +82,7 @@ test('PDF reference is validated and accepted into agent stream',async()=>{
   assert.equal(result.status,200);
   const events=await result.text();
   await Promise.all(tasks);
-  assert.match(events,/Agent did not produce any code changes/);
+  assert.match(events,/did not successfully edit a file/);
   assert.doesNotMatch(events,/Unsupported document type/);
  }finally{globalThis.fetch=original}
 });
