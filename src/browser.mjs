@@ -1,5 +1,6 @@
 import { captureScreen, imageFromFile, createAnnotator } from './capture.mjs'
 import { editorCss } from './styles.mjs'
+import { createKeyboardBoundary } from './keyboard.mjs'
 
 const elt=(tag,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node}
 const isEditorOn = config=>config.enableWhen==='always'||(config.enableWhen!=='never'&&new URLSearchParams(location.search).has('kijazo'));
@@ -42,6 +43,7 @@ export function mountKijazo(config={}){
  const canvas=elt('canvas');canvas.setAttribute('aria-label','Screenshot drawing area');work.append(canvas);
  const overlayActions=elt('div');overlayActions.className='kj-annotation-actions';const done=elt('button','Attach marked image');done.className='kj-apply';overlayActions.append(done);work.append(overlayActions);overlay.append(work);shadow.append(overlay);
  const annotator=createAnnotator(canvas);
+ const keyboard=createKeyboardBoundary({ host, shadow, panel });
  let screenshot=null,selection=null,selecting=false,hovered=null,hoverOutline='',busy=false,secret='',sessionId=crypto.randomUUID(),branch=null,lastPr=null,destroyed=false;
  const threadHistory=[];
  function log(role,text,image){
@@ -75,16 +77,17 @@ export function mountKijazo(config={}){
   const target=event.target;
   selection={selector:elSelector(target),text:(target.textContent||'').trim().slice(0,700),html:target.outerHTML.slice(0,2800),bounds:(()=>{const r=target.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}})()};
   stopSelect();log('kijazo','Selected '+selection.selector+'. Tell me how you want it changed.');
+  keyboard.take();prompt.focus({preventScroll:true});
  }
  document.addEventListener('click',selectCapture,true);
  document.addEventListener('pointermove',hoverCapture,true);
- function open(){launcher.hidden=true;panel.hidden=false;prompt.focus()}
- function close(){panel.hidden=true;launcher.hidden=false;stopSelect()}
+ function open(){launcher.hidden=true;panel.hidden=false;keyboard.take();prompt.focus({preventScroll:true})}
+ function close(){panel.hidden=true;launcher.hidden=false;keyboard.release();stopSelect()}
  launcher.addEventListener('click',open);exit.addEventListener('click',close);
  select.addEventListener('click',()=>{selecting=!selecting;select.setAttribute('aria-pressed',String(selecting));log('kijazo',selecting?'Click an element in the application to give me its context.':'Selection cancelled.')});
  file.addEventListener('change',async()=>{if(!file.files?.[0])return;try{updateImage(await imageFromFile(file.files[0]));log('kijazo','Image attached. Add a note or mark it up.')}catch(e){log('kijazo',e.message)}finally{file.value=''}});
  attach.addEventListener('click',()=>file.click());detach.addEventListener('click',()=>updateImage(null));
- screen.addEventListener('click',async()=>{try{const wasVisible=!panel.hidden;panel.hidden=true;const picture=await captureScreen();panel.hidden=!wasVisible;updateImage(picture);log('kijazo','Captured your selected tab or screen. You can circle or highlight what should change.')}catch(e){panel.hidden=false;log('kijazo',e.message)}});
+ screen.addEventListener('click',async()=>{try{const wasVisible=!panel.hidden;panel.hidden=true;keyboard.release();const picture=await captureScreen();panel.hidden=!wasVisible;updateImage(picture);log('kijazo','Captured your selected tab or screen. You can circle or highlight what should change.');keyboard.take();prompt.focus({preventScroll:true})}catch(e){panel.hidden=false;keyboard.take();prompt.focus({preventScroll:true});log('kijazo',e.message)}});
  annotate.addEventListener('click',async()=>{if(!screenshot)return;overlay.hidden=false;await annotator.load(screenshot);buttons.pen.setAttribute('aria-pressed','true')});
  for(const [name,b] of Object.entries(buttons))b.addEventListener('click',()=>{annotator.setTool(name);Object.entries(buttons).forEach(([key,element])=>element.setAttribute('aria-pressed',String(key===name)))});
  undo.addEventListener('click',()=>annotator.undo());clear.addEventListener('click',()=>annotator.clear());
@@ -144,5 +147,5 @@ export function mountKijazo(config={}){
  send.addEventListener('click',()=>void submit());
  prompt.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void submit()}});
  log('kijazo','Tell me what you want to build. Select a component or attach a screenshot and draw on it to show me exactly where.');
- return {open,close,destroy(){if(destroyed)return;destroyed=true;stopSelect();annotator.destroy();document.removeEventListener('click',selectCapture,true);document.removeEventListener('pointermove',hoverCapture,true);host.remove()}};
+ return {open,close,destroy(){if(destroyed)return;destroyed=true;stopSelect();annotator.destroy();document.removeEventListener('click',selectCapture,true);document.removeEventListener('pointermove',hoverCapture,true);keyboard.destroy();host.remove()}};
 }
