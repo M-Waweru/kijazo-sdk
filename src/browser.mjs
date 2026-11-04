@@ -118,7 +118,7 @@ export function mountKijazo(config={}){
   prompt.value='';
   try{
    const response=await fetch(opt.apiUrl.replace(/\/$/,'')+'/api/changes',{method:'POST',headers:{'content-type':'application/json','X-Kijazo-Editor-Key':secret},body:JSON.stringify({
-    project:opt.project||'',page:stripUrl(location.href),instruction:instruction||'Please inspect the screenshot and implement the indicated improvements.',selected:selection,image,sessionId,branch,history:threadHistory.slice(-8),
+    project:opt.project||'',page:stripUrl(location.href),instruction:instruction||'Please inspect the screenshot and implement the indicated improvements.',selected:selection,...(image?{image}:{}),sessionId,branch,history:threadHistory.slice(-8),
    })});
    if(!response.ok){let data;try{data=await response.json()}catch{}throw Error(data?.error||'Kijazo API returned '+response.status)}
    if(!response.body)throw Error('Streaming responses are unavailable');
