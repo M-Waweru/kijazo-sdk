@@ -43,7 +43,7 @@ export function mountKijazo(config={}){
  const undo=elt('button','Undo');const clear=elt('button','Clear');tools.append(undo,clear);work.append(tools);
  const canvas=elt('canvas');canvas.setAttribute('aria-label','Screenshot drawing area');work.append(canvas);
  const overlayActions=elt('div');overlayActions.className='kj-annotation-actions';const done=elt('button','Attach marked image');done.className='kj-apply';overlayActions.append(done);work.append(overlayActions);overlay.append(work);shadow.append(overlay);
- const annotator=createAnnotator(canvas);
+ const annotator=createAnnotator(canvas, (action)=>{if(action==='crop')buttons.circle?.click()});
  const keyboard=createKeyboardBoundary({ host, shadow, panel });
  let screenshot=null,documentAttachment=null,selection=null,selecting=false,hovered=null,hoverOutline='',busy=false,secret='',sessionId=crypto.randomUUID(),branch=null,lastPr=null,destroyed=false;
  const threadHistory=[];
