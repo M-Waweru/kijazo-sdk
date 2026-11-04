@@ -115,7 +115,7 @@ export default {async fetch(request,env,ctx){
  if(!sent||sent!==env.KIJAZO_EDITOR_KEY)return json({error:'Editor authorization required'},401,headers);
  let input;try{input=await request.json()}catch{return json({error:'Invalid JSON'},400,headers)}
  if(typeof input.instruction!=='string'||input.instruction.length<3||input.instruction.length>5000)return json({error:'Instruction must be 3-5000 characters'},400,headers);
- if(input.image!==undefined&&(typeof input.image!=='string'||input.image.length>3_500_000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(input.image)))return json({error:'Image must be PNG, JPEG or WebP below 3.5 MB encoded'},400,headers);
+ if(input.image!=null&&(typeof input.image!=='string'||input.image.length>3_500_000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(input.image)))return json({error:'Attached image must be a PNG, JPEG or WebP data URL under 3.5 MB'},400,headers);
  if(typeof input.project!=='string'||input.project.length>120)return json({error:'Invalid project name'},400,headers);
  if(input.branch!==undefined&&input.branch!==null&&(typeof input.branch!=='string'||!/^kijazo\/[0-9]+-[0-9a-f]{8}$/.test(input.branch)))return json({error:'Invalid session branch'},400,headers);
  const stream=new ReadableStream({start(controller){
