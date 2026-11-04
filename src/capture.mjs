@@ -93,6 +93,11 @@ export function createAnnotator(canvas, onChange) {
           ctx.stroke();
         }
       }
+    } else if (stroke.tool === 'underline') {
+      if (points.length > 1) {
+        const first=points[0],last=points[points.length-1];
+        ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(last.x,last.y);ctx.stroke();
+      }
     } else {
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
@@ -161,7 +166,7 @@ export function createAnnotator(canvas, onChange) {
       if (width > 24 && height > 24) {
         const cropCanvas = surface(width, height);
         cropCanvas.getContext('2d').drawImage(baseImage, x, y, width, height, 0, 0, cropCanvas.width, cropCanvas.height);
-        void load(cropCanvas.toDataURL('image/jpeg', 0.85));
+        void load(cropCanvas.toDataURL('image/jpeg', 0.85)).then(()=>{ tool='circle';onChange?.('crop') });
       }
     } else {
       strokes.push(active);
