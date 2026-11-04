@@ -1,0 +1,9 @@
+name = "kijazo-api"
+main = "src/index.mjs"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGINS = "https://mwaweru.com,https://www.mwaweru.com,http://localhost:5195"
+KIJAZO_REPO = "M-Waweru/worldmwaweru"
+OPENAI_MODEL = "gpt-4.1-mini"
