@@ -13,7 +13,13 @@ function github(env,path,options={}) {
 }
 async function githubJSON(env,path,options={}){
  const res=await github(env,path,options);const data=await res.json().catch(()=>({}));
- if(!res.ok)throw new Error('GitHub '+res.status+': '+String(data.message||'API error'));
+ if(!res.ok){
+  const step=path.startsWith('/git/ref/heads/')?'reading the main branch':path==='/git/refs'?'creating the editing branch':path.startsWith('/contents/')?'reading or writing repository files':path.startsWith('/pulls')?'creating or checking a pull request':'accessing the repository';
+  if(res.status===404)throw new Error('GitHub 404 while '+step+' in '+env.KIJAZO_REPO+'. The repository exists, but the Worker GitHub token may lack access. Grant the fine-grained token access to this repository (Contents: read/write, Pull requests: read/write), then update the GITHUB_TOKEN Cloudflare secret. GitHub may conceal unauthorized repositories with a 404.');
+  if(res.status===401)throw new Error('GitHub 401 while '+step+': the Worker GITHUB_TOKEN is invalid or expired. Replace it in Cloudflare.');
+  if(res.status===403)throw new Error('GitHub 403 while '+step+': the token may be missing required permissions or subject to an organization approval requirement.');
+  throw new Error('GitHub '+res.status+' while '+step+': '+String(data.message||'API error'));
+ }
  return data;
 }
 const toolSpecs=[
