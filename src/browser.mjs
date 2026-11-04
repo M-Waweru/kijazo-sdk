@@ -42,7 +42,7 @@ export function mountKijazo(config={}){
  const canvas=elt('canvas');canvas.setAttribute('aria-label','Screenshot drawing area');work.append(canvas);
  const overlayActions=elt('div');overlayActions.className='kj-annotation-actions';const done=elt('button','Attach marked image');done.className='kj-apply';overlayActions.append(done);work.append(overlayActions);overlay.append(work);shadow.append(overlay);
  const annotator=createAnnotator(canvas);
- let screenshot=null,selection=null,selecting=false,busy=false,secret='',sessionId=crypto.randomUUID(),branch=null,lastPr=null,destroyed=false;
+ let screenshot=null,selection=null,selecting=false,hovered=null,hoverOutline='',busy=false,secret='',sessionId=crypto.randomUUID(),branch=null,lastPr=null,destroyed=false;
  const threadHistory=[];
  function log(role,text,image){
   const msg=elt('div');msg.className='kj-message';msg.dataset.role=role;msg.append(elt('small',role==='you'?'You':'Kijazo'));msg.append(document.createTextNode(String(text||'')));
@@ -62,7 +62,13 @@ export function mountKijazo(config={}){
   annotate.disabled=!next;
  }
  annotate.disabled=true;
- function stopSelect(){selecting=false;select.setAttribute('aria-pressed','false');document.querySelectorAll('.kj-selection-highlight').forEach(n=>n.classList.remove('kj-selection-highlight'))}
+ function clearHover(){if(hovered){hovered.style.outline=hoverOutline;hovered=null}}
+ function stopSelect(){selecting=false;select.setAttribute('aria-pressed','false');clearHover()}
+ function hoverCapture(event){
+   if(!selecting||!(event.target instanceof HTMLElement)||event.composedPath().includes(host))return;
+   if(hovered===event.target)return;
+   clearHover();hovered=event.target;hoverOutline=hovered.style.outline;hovered.style.outline='3px solid #42b981';
+ }
  function selectCapture(event){
   if(!selecting||!(event.target instanceof Element)||event.composedPath().includes(host))return;
   event.preventDefault();event.stopImmediatePropagation();
@@ -71,6 +77,7 @@ export function mountKijazo(config={}){
   stopSelect();log('kijazo','Selected '+selection.selector+'. Tell me how you want it changed.');
  }
  document.addEventListener('click',selectCapture,true);
+ document.addEventListener('pointermove',hoverCapture,true);
  function open(){launcher.hidden=true;panel.hidden=false;prompt.focus()}
  function close(){panel.hidden=true;launcher.hidden=false;stopSelect()}
  launcher.addEventListener('click',open);exit.addEventListener('click',close);
@@ -115,7 +122,10 @@ export function mountKijazo(config={}){
    const reader=response.body.getReader(),decoder=new TextDecoder();let remaining='',complete=null,error=null;
    for(;;){const {done,value}=await reader.read();if(done)break;remaining+=decoder.decode(value,{stream:true});const chunks=remaining.split(/\r?\n\r?\n/);remaining=chunks.pop()||'';
      for(const chunk of chunks){const event=parseSse(chunk);if(!event)continue;
-       if(event.type==='status')status.textContent=event.message;
+       if(event.type==='status'){
+          status.textContent=event.message;
+          if(/^(Edited |Created |Continuing |Opening |Reading )/.test(event.message))log('kijazo','⚙ '+event.message);
+       }
        if(event.type==='complete')complete=event;
        if(event.type==='error')error=event.message||'Agent request failed';
      }
@@ -134,5 +144,5 @@ export function mountKijazo(config={}){
  send.addEventListener('click',()=>void submit());
  prompt.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void submit()}});
  log('kijazo','Tell me what you want to build. Select a component or attach a screenshot and draw on it to show me exactly where.');
- return {open,close,destroy(){if(destroyed)return;destroyed=true;stopSelect();annotator.destroy();document.removeEventListener('click',selectCapture,true);host.remove()}};
+ return {open,close,destroy(){if(destroyed)return;destroyed=true;stopSelect();annotator.destroy();document.removeEventListener('click',selectCapture,true);document.removeEventListener('pointermove',hoverCapture,true);host.remove()}};
 }
