@@ -1,0 +1,25 @@
+{
+  "name": "@kijazo/sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Embeddable AI software editor for existing websites",
+  "exports": {
+    ".": {
+      "types": "./src/browser.d.ts",
+      "default": "./src/browser.mjs"
+    }
+  },
+  "types": "./src/browser.d.ts",
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check src/browser.mjs && node --check worker/src/index.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
