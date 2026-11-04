@@ -24,7 +24,11 @@ const toolSpecs=[
 function validPath(input){if(typeof input!=='string'||!input||input.length>300||input.startsWith('/')||input.includes('\\')||input.split('/').some(x=>x==='..'||x==='.'||!x))throw Error('Invalid repository path');return input}
 function writable(path){validPath(path);if(/(^|\/)\.env($|[.\/])|(^|\/)\.github\/workflows\/|(^|\/)node_modules\/|(^|\/)\.git\/|(^|\/)package-lock\.json$/.test(path))throw Error('Protected path requires manual review: '+path)}
 async function runAgent(env,input,emit) {
- const repo=env.KIJAZO_REPO;if(!/^[\w.-]+\/[\w.-]+$/.test(repo||''))throw Error('KIJAZO_REPO must be owner/repository');
+ let projects={};
+ if(env.KIJAZO_PROJECTS) { try { projects=JSON.parse(env.KIJAZO_PROJECTS) } catch { throw Error('Invalid KIJAZO_PROJECTS JSON') } }
+ const repo=projects[input.project] || (!Object.keys(projects).length?env.KIJAZO_REPO:null);
+ if(!/^[\w.-]+\/[\w.-]+$/.test(repo||''))throw Error('Unknown project or invalid repository mapping');
+ if(!projects[input.project] && Object.keys(projects).length)throw Error('Project is not registered with Kijazo');
  emit('status','Reading the application repository');
  const continuing = typeof input.branch==='string' && /^kijazo\/[0-9]+-[0-9a-f]{8}$/.test(input.branch);
  const branch=continuing?input.branch:'kijazo/'+Date.now()+'-'+crypto.randomUUID().slice(0,8);
