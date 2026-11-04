@@ -160,7 +160,7 @@ export function createAnnotator(canvas, onChange) {
       const height = Math.round(Math.abs(a.y - b.y));
       if (width > 24 && height > 24) {
         const cropCanvas = surface(width, height);
-        cropCanvas.getContext('2d').drawImage(canvas, x, y, width, height, 0, 0, cropCanvas.width, cropCanvas.height);
+        cropCanvas.getContext('2d').drawImage(baseImage, x, y, width, height, 0, 0, cropCanvas.width, cropCanvas.height);
         void load(cropCanvas.toDataURL('image/jpeg', 0.85));
       }
     } else {
