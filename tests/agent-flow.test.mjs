@@ -56,3 +56,31 @@ test('bad image type returns useful 400',async()=>{
  assert.equal(result.status,400)
  assert.match((await result.json()).error,/PNG|JPEG|WebP/)
 })
+
+test('PDF reference is validated and accepted into agent stream',async()=>{
+ const original=globalThis.fetch;
+ globalThis.fetch=async(url,options={})=>{
+  const str=String(url);
+  if(str.endsWith('/git/ref/heads/main'))return response({object:{sha:'base'}});
+  if(str.endsWith('/git/refs')&&options.method==='POST')return response({ref:'refs/heads/kijazo/test'});
+  if(str.includes('api.openai.com/v1/chat/completions')){
+    const messages=JSON.parse(options.body).messages;
+    const user=messages.find(x=>x.role==='user');
+    assert.ok(user.content.some(x=>x.type==='file'&&x.file.filename==='brief.pdf'));
+    return response({choices:[{message:{role:'assistant',content:'Reviewed the PDF, no code changes required.'}}]});
+  }
+  throw Error('unexpected test request: '+str);
+ };
+ try{
+  const tasks=[];
+  const result=await worker.fetch(new Request('https://api.kijazo.test/api/changes',{
+   method:'POST',headers:{'content-type':'application/json','x-kijazo-editor-key':env.KIJAZO_EDITOR_KEY,Origin:'https://example.com'},
+   body:JSON.stringify({instruction:'Use this PDF as the design reference',project:'test-web',document:{name:'brief.pdf',type:'application/pdf',data:'data:application/pdf;base64,JVBERi0xLjQ='}})
+  }),env,{waitUntil(p){tasks.push(p)}});
+  assert.equal(result.status,200);
+  const events=await result.text();
+  await Promise.all(tasks);
+  assert.match(events,/Agent did not produce any code changes/);
+  assert.doesNotMatch(events,/Unsupported document type/);
+ }finally{globalThis.fetch=original}
+});
