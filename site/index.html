@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101f1a">
+<title>Kijazo — Build from inside the world</title>
+<meta name="description" content="Kijazo is an embeddable AI development environment. Edit your existing applications directly, with real code and real pull requests.">
+<style>
+:root{--ink:#14251e;--sage:#d8e9d2;--cream:#f6f6ed;--dark:#101f1a;--line:#c3d1bf}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--cream);color:var(--ink);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif}a{color:inherit}header{display:flex;align-items:center;justify-content:space-between;max-width:1130px;margin:auto;padding:26px 26px}header .brand{font:700 27px Georgia,serif;letter-spacing:-.045em;text-decoration:none}header nav{display:flex;gap:24px;align-items:center;font-size:13px;font-weight:650}nav a{text-decoration:none}nav a:hover{text-decoration:underline}.pill{border:1px solid #496853;border-radius:999px;padding:11px 17px;text-decoration:none}
+.hero{max-width:1130px;margin:8px auto 0;padding:65px 26px 75px;display:grid;grid-template-columns:1.04fr .96fr;align-items:center;gap:45px}.eyebrow{font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#627a65;font-weight:750;margin:0 0 18px}h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:400;letter-spacing:-.06em;line-height:1.04}h1{font-size:clamp(52px,6.7vw,96px);margin:0 0 26px}h2{font-size:clamp(38px,4vw,63px);margin:0 0 18px}.intro{font-size:18px;color:#5c6e5d;max-width:500px;margin:0 0 32px}.actions{display:flex;gap:12px;flex-wrap:wrap}.primary{display:inline-flex;align-items:center;text-decoration:none;background:#244d35;color:white;border-radius:8px;padding:13px 19px;font-size:14px;font-weight:680}.secondary{display:inline-flex;align-items:center;text-decoration:none;border:1px solid #b7c8b5;border-radius:8px;padding:13px 19px;font-size:14px;font-weight:650}
+.terminal{background:var(--dark);color:#e6f1e2;border:1px solid #3f5848;border-radius:19px;overflow:hidden;box-shadow:0 30px 70px #0c2a182c;transform:rotate(-1deg)}.terminal-head{display:flex;align-items:center;gap:8px;border-bottom:1px solid #395244;padding:16px 20px}.dot{width:9px;height:9px;border-radius:50%;background:#799282}.terminal-head span:last-child{margin-left:auto;font-size:11px;color:#9cae9f}.terminal-body{padding:25px;display:grid;gap:15px}.bubble{background:#263e32;border-radius:12px;padding:14px 16px;font-size:14px;max-width:90%;color:#eaf4e7}.bubble.owner{background:#dce9d0;color:#1e3e2b;margin-left:auto}.thinking{display:flex;gap:9px;align-items:center;font:12px/1.4 ui-monospace,monospace;color:#a1c8a8}.thinking:before{content:"";background:#8be0a5;width:7px;height:7px;border-radius:50%}.files{border:1px solid #3e5f49;border-radius:9px;padding:14px 16px;font:12px/2 ui-monospace,monospace;color:#bed1bf}.files b{color:#a5eeae}.preview{background:linear-gradient(140deg,#e7ecdb,#b8d1ad);border-radius:9px;color:#1d3b2c;padding:20px}.preview small{letter-spacing:.08em;text-transform:uppercase;font-size:10px}.preview strong{display:block;font:32px Georgia,serif;margin-top:4px}.preview p{font-size:12px;line-height:1.5;margin:5px 0}
+.strip{background:#dce9d5;border-top:1px solid #cbd9c7;border-bottom:1px solid #cbd9c7;padding:23px 26px;color:#445d46;font-size:13px}.strip-inner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;max-width:1078px;margin:auto}.strip b{color:#1c3d2a}
+section.section{max-width:1130px;margin:auto;padding:96px 26px}.section-lead{font-size:18px;max-width:610px;color:#617366}.features{display:grid;grid-template-columns:repeat(3,1fr);gap:17px;margin-top:45px}.feature{border:1px solid #d4dfce;background:#fffef8;padding:29px;border-radius:14px}.feature .number{color:#7b9e83;font:13px ui-monospace,monospace}.feature h3{font:25px Georgia,serif;font-weight:400;letter-spacing:-.03em;margin:24px 0 9px}.feature p{font-size:14px;color:#637265;margin:0}
+.install{background:#15281f;color:white;border-radius:19px;padding:40px;display:grid;grid-template-columns:1fr 1fr;gap:45px;align-items:center}.install p{color:#b9cab9}.install pre{font:13px/1.9 ui-monospace,monospace;white-space:pre-wrap;background:#0f1b15;border:1px solid #425a46;padding:22px;border-radius:12px;overflow-wrap:anywhere}.install h2{font-size:43px}
+footer{max-width:1130px;margin:auto;padding:30px 26px 50px;display:flex;justify-content:space-between;font-size:12px;color:#657567;gap:20px}
+@media(max-width:750px){header nav{gap:12px}.hero{grid-template-columns:1fr;padding-top:30px}.terminal{transform:none}.features{grid-template-columns:1fr}.install{grid-template-columns:1fr;padding:27px}footer{flex-direction:column}}
+</style>
+</head>
+<body>
+<header><a href="/" class="brand" aria-label="Kijazo home">kijazo<span style="color:#678e72">.</span></a><nav><a href="#how">How it works</a><a href="#install">Install</a><a class="pill" href="https://github.com/M-Waweru/kijazo-sdk">GitHub ↗</a></nav></header>
+<main>
+<div class="hero"><div><p class="eyebrow">The future of building software</p><h1>Build from inside the world.</h1><p class="intro">Imagine editing your application by talking to it. Select what you see. Describe what should exist. Let AI make real changes to real code.</p><div class="actions"><a class="primary" href="https://github.com/M-Waweru/kijazo-sdk">Explore the SDK ↗</a><a class="secondary" href="#how">See how it works</a></div></div>
+<div class="terminal" aria-label="Illustration of a Kijazo editing session">
+<div class="terminal-head"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>kijazo · development session</span></div>
+<div class="terminal-body"><div class="bubble owner">Turn this workshop into a futuristic inventor's laboratory. Keep the garden, but give me a room to build things.</div><div class="thinking">Kijazo is exploring the project…</div><div class="files"><div>→ src/components/PortfolioWork.tsx</div><div>→ src/world/WorldScene.ts</div><div><b>+ designing a new workbench</b></div><div><b>+ proposing code changes</b></div></div><div class="preview"><small>Visual concept · illustrative</small><strong>The Workshop</strong><p>A place where unfinished ideas become real things.</p></div><div class="thinking">Reviewable changes on GitHub</div></div></div></div>
+<div class="strip"><div class="strip-inner"><span><b>Installable SDK</b> · Bring Kijazo into your product</span><span><b>Cloudflare-native API</b> · Host it on your own infrastructure</span><span><b>Real Git workflows</b> · Changes you can review</span></div></div>
+<section class="section" id="how"><p class="eyebrow">One layer. Any world.</p><h2>Software that can be changed<br>from within itself.</h2><p class="section-lead">Kijazo gives an existing application a conversational development interface, while the coding agent operates against the application's actual source repository.</p>
+<div class="features"><article class="feature"><span class="number">01 / Experience</span><h3>Touch the interface</h3><p>Select an element on the website, describe a change, and give the agent the context of what you're seeing.</p></article><article class="feature"><span class="number">02 / Intelligence</span><h3>Rewrite the software</h3><p>The server-side AI agent can inspect frontend code and propose real modifications, not just swap preset themes.</p></article><article class="feature"><span class="number">03 / Publication</span><h3>Publish on your terms</h3><p>Versioned changes appear in GitHub pull requests. Automated checks and approvals control what reaches visitors.</p></article></div></section>
+<section class="section" id="install"><div class="install"><div><p class="eyebrow" style="color:#9bbe9f">Open, independent, embeddable</p><h2>Start with one website.</h2><p>World Mwaweru is Kijazo's first installation experiment. The SDK lives in its own repository so it can evolve without being coupled to any one website.</p><a class="primary" style="background:#dce9d5;color:#183b2d" href="https://github.com/M-Waweru/kijazo-sdk#readme">Installation guide ↗</a></div><pre><span style="color:#a9dba6">// Install the SDK</span>
+npm install \
+  git+https://github.com/\
+M-Waweru/kijazo-sdk.git
+
+<span style="color:#a9dba6">// Your React application</span>
+import { mountKijazo }
+  from '@kijazo/sdk'
+
+mountKijazo({
+  apiUrl: 'https://api.kijazo.com'
+})</pre></div></section>
+</main>
+<footer><span>© 2026 Kijazo · Built for the love of building.</span><span>Early developer preview · <a href="https://github.com/M-Waweru/kijazo-sdk">Source on GitHub</a></span></footer>
+</body>
+</html>
