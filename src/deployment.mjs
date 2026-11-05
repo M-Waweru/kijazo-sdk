@@ -20,12 +20,7 @@ export function deploymentChanged(before, after) {
   return Boolean(earlier&&later&&earlier!==later);
 }
 export async function watchDeployment({ onStatus, onReady, maxAttempts=45, delayMs=3000, fetcher=fetch, pageUrl=location.href, originalHtml=document.documentElement.outerHTML, cancelled=()=>false }) {
-  let baseline=originalHtml;
-  // Fetch the currently published HTML at the moment the user clicks publish.
-  try {
-    const current=await fetcher(pageUrl,{cache:'no-store',headers:{'Cache-Control':'no-cache'}});
-    if(current.ok) baseline=await current.text();
-  }catch{/* Use the currently rendered HTML as a fallback. */}
+  const baseline=originalHtml;
   for(let attempt=0;attempt<maxAttempts;attempt++){
     if(cancelled())return false;
     await new Promise(resolve=>setTimeout(resolve,delayMs));
