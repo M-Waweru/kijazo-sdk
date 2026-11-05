@@ -48,7 +48,7 @@ export function mountKijazo(config={}){
  const overlayActions=elt('div');overlayActions.className='kj-annotation-actions';const done=elt('button','Attach marked image');done.className='kj-apply';overlayActions.append(done);work.append(overlayActions);overlay.append(work);shadow.append(overlay);
  const annotator=createAnnotator(canvas, (action)=>{if(action==='crop')buttons.circle?.click()});
  const keyboard=createKeyboardBoundary({ host, shadow, panel });
- let screenshot=null,documentAttachment=null,selection=null,selecting=false,hovered=null,hoverOutline='',busy=false,secret='',sessionId=crypto.randomUUID(),branch=null,lastPr=null,prNumber=null,publishing=false,watchCancelled=false,destroyed=false;
+ let screenshot=null,documentAttachment=null,selection=null,selecting=false,hovered=null,hoverOutline='',busy=false,secret='',sessionId=crypto.randomUUID(),branch=null,lastPr=null,prNumber=null,publishing=false,watchCancelled=false,manualRefresh=false,destroyed=false;
  const threadHistory=[];
  function log(role,text,image){
   const msg=elt('div');msg.className='kj-message';msg.dataset.role=role;msg.append(elt('small',role==='you'?'You':'Kijazo'));msg.append(document.createTextNode(String(text||'')));
@@ -138,7 +138,7 @@ export function mountKijazo(config={}){
   else if(window.confirm('Clear the editor access key from memory?'))secret='';
   setup.textContent=secret?'Editor connected · change key':'Connect editor';
  });
- fresh.addEventListener('click',()=>{watchCancelled=true;publication.hidden=true;prNumber=null;sessionId=crypto.randomUUID();branch=null;lastPr=null;selection=null;updateImage(null);documentAttachment=null;docAttachment.hidden=true;threadHistory.length=0;log('kijazo','Started a fresh editing session.')});
+ fresh.addEventListener('click',()=>{watchCancelled=true;publication.hidden=true;prNumber=null;manualRefresh=false;sessionId=crypto.randomUUID();branch=null;lastPr=null;selection=null;updateImage(null);documentAttachment=null;docAttachment.hidden=true;threadHistory.length=0;log('kijazo','Started a fresh editing session.')});
  async function submit(){
   const instruction=prompt.value.trim();
   if(!instruction && !screenshot && !documentAttachment)return;
@@ -190,6 +190,7 @@ export function mountKijazo(config={}){
   finally{busy=false;send.disabled=false;setTimeout(()=>{if(!busy)status.hidden=true},1600)}
  }
  async function publish(){
+    if(manualRefresh){window.location.reload();return}
     if(publishing||!prNumber||!branch||!secret)return;
     if(!window.confirm('Publish Kijazo PR #'+prNumber+' to your live application? GitHub checks must pass and the protected branch must allow this merge.'))return;
     publishing=true;publishButton.disabled=true;publishButton.textContent='Verifying PR…';
@@ -218,7 +219,7 @@ export function mountKijazo(config={}){
       });
       publishButton.textContent='Refresh manually';
       publishButton.disabled=false;
-      publishButton.onclick=()=>window.location.reload();
+      manualRefresh=true;
     }catch(error){
       const message=String(error.message||error);
       publishInfo.textContent='Publish blocked: '+message;
