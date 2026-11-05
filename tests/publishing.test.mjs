@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { publishPullRequest, PublishError } from '../worker/src/publishing.mjs'
-import { assetSignature, deploymentChanged } from '../src/deployment.mjs'
+import { assetSignature, deploymentChanged, watchDeployment } from '../src/deployment.mjs'
 
 const repo='DemoOrg/example-web'
 const sha='e'.repeat(40)
@@ -81,3 +81,31 @@ test('detects changed hashed assets for a same-page refresh',()=>{
   assert.equal(deploymentChanged(old,updated),true)
   assert.equal(deploymentChanged(old,old),false)
 })
+
+test('deployment watcher refreshes only after a changed build is observable',async()=>{
+  const old='<html><script type="module" src="/assets/index-old.js"></script></html>';
+  const updated='<html><script type="module" src="/assets/index-new.js"></script></html>';
+  let requests=0, refreshed=0;
+  const done=await watchDeployment({
+    pageUrl:'https://example.org/?kijazo=1',
+    originalHtml:old,
+    delayMs:0,maxAttempts:4,
+    fetcher:async()=>{requests++;return {ok:true,text:async()=>requests<2?old:updated}},
+    onReady:()=>{refreshed++}
+  });
+  assert.equal(done,true);
+  assert.equal(refreshed,1);
+  assert.equal(requests,2);
+});
+test('deployment watcher never claims success while assets are unchanged',async()=>{
+  const old='<html><script type="module" src="/assets/index-old.js"></script></html>';
+  let refreshed=0;
+  const done=await watchDeployment({
+    pageUrl:'https://example.org/?kijazo=1',
+    originalHtml:old,delayMs:0,maxAttempts:2,
+    fetcher:async()=>({ok:true,text:async()=>old}),
+    onReady:()=>{refreshed++}
+  });
+  assert.equal(done,false);
+  assert.equal(refreshed,0);
+});
