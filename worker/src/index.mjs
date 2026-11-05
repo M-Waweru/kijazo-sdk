@@ -1,3 +1,4 @@
+import { publishPullRequest, PublishError } from './publishing.mjs'
 // Kijazo API for Cloudflare Workers: GitHub-backed AI code editing.
 // AI and GitHub credentials are server-only Cloudflare secrets.
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json',...headers}});
@@ -187,12 +188,22 @@ export default {async fetch(request,env,ctx){
  const url=new URL(request.url),headers=cors(request,env);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(url.pathname==='/health')return json({ok:true,service:'kijazo-api'},200,headers);
- if(!['/api/changes','/api/diagnostics'].includes(url.pathname)||request.method!=='POST')return json({error:'Not found'},404,headers);
+ if(!['/api/changes','/api/diagnostics','/api/publish'].includes(url.pathname)||request.method!=='POST')return json({error:'Not found'},404,headers);
  const origin=request.headers.get('Origin');
  if(origin&&!headers['Access-Control-Allow-Origin'])return json({error:'Origin not allowed'},403,headers);
  if(!env.KIJAZO_EDITOR_KEY||!env.OPENAI_API_KEY||!env.GITHUB_TOKEN)return json({error:'Server not configured; set required Cloudflare secrets'},503,headers);
  const sent=request.headers.get('X-Kijazo-Editor-Key')||'';
  if(!sent||sent!==env.KIJAZO_EDITOR_KEY)return json({error:'Editor authorization required'},401,headers);
+ if(url.pathname==='/api/publish'){
+   let payload;
+   try { payload=await request.json(); } catch { return json({error:'Invalid JSON'},400,headers); }
+   try {
+     return json(await publishPullRequest(env,payload),200,headers);
+   } catch(error) {
+     const status=error instanceof PublishError?error.status:500;
+     return json({error:status===500?'Publication failed unexpectedly. Check Worker logs.':String(error.message)},status,headers);
+   }
+ }
  if(url.pathname==='/api/diagnostics'){
    try {
      const test=await githubJSON(env,'/git/ref/heads/main');

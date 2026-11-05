@@ -1,6 +1,7 @@
 import { captureScreen, imageFromFile, createAnnotator } from './capture.mjs'
 import { editorCss } from './styles.mjs'
 import { createKeyboardBoundary } from './keyboard.mjs'
+import { watchDeployment } from './deployment.mjs'
 
 const elt=(tag,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node}
 const isEditorOn = config=>config.enableWhen==='always'||(config.enableWhen!=='never'&&new URLSearchParams(location.search).has('kijazo'));
@@ -35,6 +36,8 @@ export function mountKijazo(config={}){
  const attachment=elt('div');attachment.className='kj-attach';attachment.hidden=true;const thumb=elt('img');thumb.alt='Screenshot to send to Kijazo';const attachLabel=elt('span','Screenshot attached · click to mark it');const detach=elt('button','✕');detach.setAttribute('aria-label','Remove screenshot');attachment.append(thumb,attachLabel,detach);composer.append(attachment);
  const docAttachment=elt('div');docAttachment.className='kj-attach';docAttachment.hidden=true;const docLabel=elt('span');const removeDoc=elt('button','✕');removeDoc.setAttribute('aria-label','Remove document');docAttachment.append(elt('span','📄'),docLabel,removeDoc);composer.append(docAttachment);
  const row=elt('div');row.className='kj-compose-row';const prompt=elt('textarea');prompt.className='kj-input';prompt.placeholder='Tell Kijazo what to build or change…';prompt.setAttribute('aria-label','Message to Kijazo');prompt.rows=2;const send=elt('button','Send ↗');send.className='kj-send';send.type='button';row.append(prompt,send);composer.append(row);
+ const publication=elt('div');publication.className='kj-publication';publication.hidden=true;
+ const publishInfo=elt('span','Code changes are ready for review.');const publishButton=elt('button','Publish to live app');publishButton.type='button';publishButton.className='kj-publish-button';publication.append(publishInfo,publishButton);composer.append(publication);
  const foot=elt('div');foot.className='kj-foot';const hint=elt('span','Enter to send · Shift+Enter for newline');const setup=elt('button','Connect editor');foot.append(hint,setup);composer.append(foot);
  const file=elt('input');file.type='file';file.accept='image/png,image/jpeg,image/webp,image/gif,application/pdf,.txt,.md,.csv,.json,.yaml,.yml,.xml,.html,.js,.jsx,.ts,.tsx,.py,.sql,.log';file.hidden=true;shadow.append(file);
  const overlay=elt('div');overlay.className='kj-annotation';overlay.hidden=true;const work=elt('div');work.className='kj-annotation-body';const overlayHead=elt('header');overlayHead.append(elt('h2','Snip, circle or underline what you want changed'));const closeOverlay=elt('button','Cancel');overlayHead.append(closeOverlay);work.append(overlayHead);
@@ -45,7 +48,7 @@ export function mountKijazo(config={}){
  const overlayActions=elt('div');overlayActions.className='kj-annotation-actions';const done=elt('button','Attach marked image');done.className='kj-apply';overlayActions.append(done);work.append(overlayActions);overlay.append(work);shadow.append(overlay);
  const annotator=createAnnotator(canvas, (action)=>{if(action==='crop')buttons.circle?.click()});
  const keyboard=createKeyboardBoundary({ host, shadow, panel });
- let screenshot=null,documentAttachment=null,selection=null,selecting=false,hovered=null,hoverOutline='',busy=false,secret='',sessionId=crypto.randomUUID(),branch=null,lastPr=null,destroyed=false;
+ let screenshot=null,documentAttachment=null,selection=null,selecting=false,hovered=null,hoverOutline='',busy=false,secret='',sessionId=crypto.randomUUID(),branch=null,lastPr=null,prNumber=null,publishing=false,watchCancelled=false,manualRefresh=false,destroyed=false;
  const threadHistory=[];
  function log(role,text,image){
   const msg=elt('div');msg.className='kj-message';msg.dataset.role=role;msg.append(elt('small',role==='you'?'You':'Kijazo'));msg.append(document.createTextNode(String(text||'')));
@@ -135,7 +138,7 @@ export function mountKijazo(config={}){
   else if(window.confirm('Clear the editor access key from memory?'))secret='';
   setup.textContent=secret?'Editor connected · change key':'Connect editor';
  });
- fresh.addEventListener('click',()=>{sessionId=crypto.randomUUID();branch=null;lastPr=null;selection=null;updateImage(null);documentAttachment=null;docAttachment.hidden=true;threadHistory.length=0;log('kijazo','Started a fresh editing session.')});
+ fresh.addEventListener('click',()=>{watchCancelled=true;publication.hidden=true;prNumber=null;manualRefresh=false;sessionId=crypto.randomUUID();branch=null;lastPr=null;selection=null;updateImage(null);documentAttachment=null;docAttachment.hidden=true;threadHistory.length=0;log('kijazo','Started a fresh editing session.')});
  async function submit(){
   const instruction=prompt.value.trim();
   if(!instruction && !screenshot && !documentAttachment)return;
@@ -171,7 +174,14 @@ export function mountKijazo(config={}){
    if(error)throw Error(error);
    if(!complete)throw Error('The agent connection closed before reporting a result.');
    if(complete.branch)branch=complete.branch;
-   if(complete.prUrl){lastPr=complete.prUrl;addLink(complete.message||'Changes proposed.',complete.prUrl)}
+   if(complete.prUrl){
+     lastPr=complete.prUrl;
+     const match=new URL(complete.prUrl).pathname.match(/\/pull\/(\d+)\/?$/);
+     prNumber=match?Number(match[1]):null;
+     publication.hidden=!prNumber;
+     if(prNumber)publishInfo.textContent='PR #'+prNumber+' is ready. Review and publish without leaving this app.';
+     addLink(complete.message||'Changes proposed.',complete.prUrl);
+   }
    else log('kijazo',complete.message||'Request completed.');
    threadHistory.push({role:'user',content:instruction},{role:'assistant',content:complete.message||'Prepared code edits'});
    status.textContent='Changes ready for review.';
@@ -179,8 +189,55 @@ export function mountKijazo(config={}){
   }catch(error){log('kijazo',error.message||String(error));status.textContent='Request failed — please retry.'}
   finally{busy=false;send.disabled=false;setTimeout(()=>{if(!busy)status.hidden=true},1600)}
  }
- send.addEventListener('click',()=>void submit());
+ async function publish(){
+    if(manualRefresh){window.location.reload();return}
+    if(publishing||!prNumber||!branch||!secret)return;
+    if(!window.confirm('Publish Kijazo PR #'+prNumber+' to your live application? GitHub checks must pass and the protected branch must allow this merge.'))return;
+    publishing=true;publishButton.disabled=true;publishButton.textContent='Verifying PR…';
+    const initialHtml=document.documentElement.outerHTML;
+    const expectedPr=prNumber;
+    const expectedBranch=branch;
+    try{
+      const response=await fetch(opt.apiUrl.replace(/\/$/,'')+'/api/publish',{
+        method:'POST',headers:{'content-type':'application/json','X-Kijazo-Editor-Key':secret},
+        body:JSON.stringify({project:opt.project,prNumber:expectedPr,branch:expectedBranch})
+      });
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||!result.ok)throw Error(result.error||'Publishing failed ('+response.status+').');
+      log('kijazo','✓ '+result.message);
+      publishInfo.textContent='Merged PR #'+expectedPr+'. Waiting for deployment…';
+      publishButton.textContent='Waiting for deployment';
+      watchCancelled=false;
+      await watchDeployment({
+        pageUrl:window.location.href,originalHtml:initialHtml,
+        cancelled:()=>watchCancelled||destroyed,
+        onStatus:(message)=>{publishInfo.textContent=message},
+        onReady:()=>{
+          try{sessionStorage.setItem('kijazo:published',JSON.stringify({time:Date.now(),prNumber:expectedPr}))}catch{}
+          window.location.reload();
+        }
+      });
+      publishButton.textContent='Refresh manually';
+      publishButton.disabled=false;
+      manualRefresh=true;
+    }catch(error){
+      const message=String(error.message||error);
+      publishInfo.textContent='Publish blocked: '+message;
+      log('kijazo','⚠ '+message);
+      publishButton.textContent='Retry publish';
+      publishButton.disabled=false;
+    }finally{publishing=false}
+  }
+  publishButton.addEventListener('click',()=>void publish());
+  try{
+    const saved=JSON.parse(sessionStorage.getItem('kijazo:published')||'null');
+    if(saved?.time&&Date.now()-saved.time<180000){
+      sessionStorage.removeItem('kijazo:published');
+      log('kijazo','✓ Your application has refreshed with the latest published deployment from PR #'+saved.prNumber+'.');
+    }
+  }catch{}
+  send.addEventListener('click',()=>void submit());
  prompt.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void submit()}});
  log('kijazo','Tell me what you want to build. Paste a screenshot, use Snip, or attach a document. Circle or underline anything you want changed, then keep chatting.');
- return {open,close,destroy(){if(destroyed)return;destroyed=true;stopSelect();annotator.destroy();document.removeEventListener('click',selectCapture,true);document.removeEventListener('pointermove',hoverCapture,true);keyboard.destroy();host.remove()}};
+ return {open,close,destroy(){if(destroyed)return;destroyed=true;watchCancelled=true;stopSelect();annotator.destroy();document.removeEventListener('click',selectCapture,true);document.removeEventListener('pointermove',hoverCapture,true);keyboard.destroy();host.remove()}};
 }
